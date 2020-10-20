@@ -3,9 +3,13 @@ variables:
   NUGET_PACKAGES: 'C:\NugetPackageCache'
   XUNIT_PATH: 'C:\Tools\xUnitRunner\xunit.console.exe'
   SONARSCANNER_MSBUILD_PATH: 'C:\Tools\SonarScanner\SonarScanner.MSBuild.exe'
+  OPENCOVER_PATH: 'C:\Tools\OpenCover\OpenCover.Console.exe'
   # Максимальное количество параллельно собираемых проектов при сборке решения; 
   # зависит от количества ядер ПК, выбранного для сборки
   MSBUILD_CONCURRENCY: 4
+  OBJECTS_TO_TEST_REGEX: '^(FriendStorage)[^\n]*\.(dll|exe)$'
+  OPENCOVER_FILTER: '+[FriendStorage.*]* -[*UITests]* -[*AssemblyInfo]*'
+  OPENCOVER_REPORT_FILE_PATH: '.\cover.xml'
   BUILD_FOLDER: 'FriendStorage.UI\bin\Release'
   TEST_FOLDER: 'FriendStorage.UITests\bin\Release'
 
@@ -50,9 +54,22 @@ test_job:
     - /^master$/
   script:
     - 'msbuild /t:restore /p:Configuration="Release" /p:Platform="Any CPU" /m:$env:MSBUILD_CONCURRENCY /nr:false /clp:ErrorsOnly'
-    - '& "$env:SONARSCANNER_MSBUILD_PATH" begin /key:$env:SONARQUBE_PROJECT_KEY /d:sonar.host.url=$env:SONARQUBE_HOST_URL /d:sonar.login=$env:SONARQUBE_AUTH_TOKEN /d:sonar.gitlab.project_id=$CI_PROJECT_PATH /d:sonar.gitlab.ref_name=master /d:sonar.dotnet.excludeGeneratedCode=true'
+    - '& "$env:SONARSCANNER_MSBUILD_PATH" begin /key:$env:SONARQUBE_PROJECT_KEY /d:sonar.host.url=$env:SONARQUBE_HOST_URL /d:sonar.login=$env:SONARQUBE_AUTH_TOKEN /d:sonar.gitlab.project_id=$CI_PROJECT_PATH /d:sonar.gitlab.ref_name=master /d:sonar.cs.opencover.reportsPaths="$env:OPENCOVER_REPORT_FILE_PATH" /d:sonar.dotnet.excludeGeneratedCode=true'
     - 'msbuild  /t:rebuild /p:Configuration="Release" /p:Platform="Any CPU" /m:$env:MSBUILD_CONCURRENCY /nr:false /clp:ErrorsOnly'
+    - '$foundObjects = @(Get-ChildItem "$env:TEST_FOLDER" -Recurse) | Where-Object {$_.Name -match $env:OBJECTS_TO_TEST_REGEX} | ForEach-Object { """""$($_.FullName)""""" }'
+    - '$foundObjectsAsParam = $foundObjects -join " "'
+    - 'Write-Host "Running OpenCover ... "'
+    - '& "$env:OPENCOVER_PATH" -register -target:"$env:XUNIT_PATH" -returntargetcode -targetargs:"$foundObjectsAsParam -noshadow" -filter:"$env:OPENCOVER_FILTER" -output:"$env:OPENCOVER_REPORT_FILE_PATH"' 
+    - 'if ($?) {'
+    -   '[xml]$coverXml = Get-Content "$env:OPENCOVER_REPORT_FILE_PATH"'
+    -   '$sequenceCoverage = $coverXml.CoverageSession.Summary.sequenceCoverage'
+    -   '$branchCoverage = $coverXml.CoverageSession.Summary.branchCoverage'
+    -   'Write-Host "Total Sequence Coverage <!<$sequenceCoverage>!>"'
+    -   'Write-Host "Total Branch Coverage [![$branchCoverage]!]"'
+    - '} else {'
+    -   'Write-Host "One or more tests failed!"'
+    -   'Throw'
+    - '}'
     - '& "$env:SONARSCANNER_MSBUILD_PATH" end /d:sonar.login=$env:SONARQUBE_AUTH_TOKEN'
-    - '& "$env:XUNIT_PATH" "$env:TEST_FOLDER\FriendStorage.UITests.dll"'
   dependencies:
     - build_job
