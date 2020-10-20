@@ -1,0 +1,43 @@
+variables:
+  MSBUILD_PATH: 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\msbuild.exe'
+  NUGET_PATH: 'C:\Tools\Nuget\nuget.exe'
+  NUGET_PACKAGES: 'C:\NugetPackageCache'
+  XUNIT_PATH: 'C:\Tools\xUnitRunner\xunit.console.exe'
+  # Максимальное количество параллельно собираемых проектов при сборке решения; 
+  # зависит от количества ядер ПК, выбранного для сборки
+  MSBUILD_CONCURRENCY: 4
+  BUILD_FOLDER: 'FriendStorage.UI\bin\Release'
+  TEST_FOLDER: 'FriendStorage.UITests\bin\Release'
+
+stages:
+  - build
+  - test
+
+build_job:
+  stage: build
+  tags: [dotnetcicdtest]
+  only:
+    - /^master$/
+  script:
+    - '& "$env:NUGET_PATH" restore'
+    - '& "$env:MSBUILD_PATH" /p:Configuration=Release /m:$env:MSBUILD_CONCURRENCY /nr:false /clp:ErrorsOnly'
+  artifacts:
+    name: "master_$($CI_PIPELINE_IID)"
+    expire_in: 28 days
+    paths:
+      - "$env:BUILD_FOLDER\\*.dll"
+      - "$env:BUILD_FOLDER\\*.config"
+      - "$env:BUILD_FOLDER\\*.exe"
+      - "$env:TEST_FOLDER\\*.dll"
+      - "$env:TEST_FOLDER\\*.config"
+      - "$env:TEST_FOLDER\\*.exe"
+      
+test_job:
+  stage: test
+  tags: [dotnetcicdtest]
+  only:
+    - /^master$/
+  script:
+    - '& "$env:XUNIT_PATH" "$env:TEST_FOLDER\FriendStorage.UITests.dll"'
+  dependencies:
+    - build_job
