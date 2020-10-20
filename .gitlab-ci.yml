@@ -4,6 +4,7 @@ variables:
   XUNIT_PATH: 'C:\Tools\xUnitRunner\xunit.console.exe'
   SONARSCANNER_MSBUILD_PATH: 'C:\Tools\SonarScanner\SonarScanner.MSBuild.exe'
   OPENCOVER_PATH: 'C:\Tools\OpenCover\OpenCover.Console.exe'
+  DEPLOY_TELEGRAM_SCRIPT: 'C:\Tools\Scripts\Deploy-FileToTelegram.ps1'
   # Максимальное количество параллельно собираемых проектов при сборке решения; 
   # зависит от количества ядер ПК, выбранного для сборки
   MSBUILD_CONCURRENCY: 4
@@ -24,6 +25,7 @@ variables:
 stages:
   - build
   - test
+  - deploy
 
 build_job:
   <<: *enter_vsdevshell
@@ -73,3 +75,16 @@ test_job:
     - '& "$env:SONARSCANNER_MSBUILD_PATH" end /d:sonar.login=$env:SONARQUBE_AUTH_TOKEN'
   dependencies:
     - build_job
+
+deploy_telegram:
+  when: manual
+  stage: deploy
+  tags: [dotnetcicdtest]
+  dependencies:
+    - build_job
+  only:
+    - /^master$/
+  script:
+    - 'if (Get-Command "pwsh.exe") {'
+    - '  pwsh.exe -NoLogo -NonInteractive -NoProfile -File "$env:DEPLOY_TELEGRAM_SCRIPT" -BotToken "$env:TELEGRAM_BOT_TOKEN" -ChatID "$env:TELEGRAM_CHAT_ID" -File "$env:BUILD_FOLDER\FriendStorage.UI.exe" -Caption "Новая версия приложения"'
+    - '}'
