@@ -28,7 +28,11 @@ build_job:
     - /^master$/
   script:
     - 'msbuild /t:restore /p:Configuration="Release" /p:Platform="Any CPU" /m:$env:MSBUILD_CONCURRENCY /nr:false /clp:ErrorsOnly'
-    - 'msbuild /p:Configuration="Release" /p:Platform="Any CPU" /m:$env:MSBUILD_CONCURRENCY /nr:false /clp:ErrorsOnly'
+    - '$versionGroup = git describe --long | Select-String -Pattern "(?<major>[0-9]+)\.(?<minor>[0-9]*)\.(?<patch>[0-9]*)\-(?<commit>[0-9]+)\-g[0-9a-f]+" | Select-Object -First 1'
+    - '[int]$major, [int]$minor, [int]$patch, [int]$commit = $versionGroup.Matches[0].Groups["major", "minor", "patch", "commit"].Value'
+    - '[string]$version = "$major.$minor.$patch.$commit"'
+    - 'Write-Host "Building Release | AnyCpu application v$version..."'
+    - 'msbuild /p:Configuration="Release" /p:AssemblyVersionNumber=$version /p:Platform="Any CPU" /m:$env:MSBUILD_CONCURRENCY /nr:false /clp:ErrorsOnly'
   artifacts:
     name: "master_$($CI_PIPELINE_IID)"
     expire_in: 28 days
