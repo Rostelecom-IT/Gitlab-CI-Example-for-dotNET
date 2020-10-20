@@ -1,6 +1,5 @@
 variables:
-  MSBUILD_PATH: 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\msbuild.exe'
-  NUGET_PATH: 'C:\Tools\Nuget\nuget.exe'
+  VSWHERE_PATH: '%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe'
   NUGET_PACKAGES: 'C:\NugetPackageCache'
   XUNIT_PATH: 'C:\Tools\xUnitRunner\xunit.console.exe'
   # Максимальное количество параллельно собираемых проектов при сборке решения; 
@@ -9,18 +8,27 @@ variables:
   BUILD_FOLDER: 'FriendStorage.UI\bin\Release'
   TEST_FOLDER: 'FriendStorage.UITests\bin\Release'
 
+.before_msbuild: &enter_vsdevshell
+  before_script:
+    - chcp 65001
+    - '$vsWherePath = [System.Environment]::ExpandEnvironmentVariables($env:VSWHERE_PATH)'
+    - '& $vsWherePath -latest -format value -property installationPath -products Microsoft.VisualStudio.Product.Community Microsoft.VisualStudio.Product.BuildTools | Tee-Object -Variable visualStudioPath'
+    - 'Join-Path "$visualStudioPath" "\Common7\Tools\Microsoft.VisualStudio.DevShell.dll" | Import-Module'
+    - 'Enter-VsDevShell -VsInstallPath:"$visualStudioPath" -SkipAutomaticLocation'
+
 stages:
   - build
   - test
 
 build_job:
+  <<: *enter_vsdevshell
   stage: build
   tags: [dotnetcicdtest]
   only:
     - /^master$/
   script:
-    - '& "$env:NUGET_PATH" restore'
-    - '& "$env:MSBUILD_PATH" /p:Configuration=Release /m:$env:MSBUILD_CONCURRENCY /nr:false /clp:ErrorsOnly'
+    - 'msbuild /t:restore /p:Configuration="Release" /p:Platform="Any CPU" /m:$env:MSBUILD_CONCURRENCY /nr:false /clp:ErrorsOnly'
+    - 'msbuild /p:Configuration="Release" /p:Platform="Any CPU" /m:$env:MSBUILD_CONCURRENCY /nr:false /clp:ErrorsOnly'
   artifacts:
     name: "master_$($CI_PIPELINE_IID)"
     expire_in: 28 days
