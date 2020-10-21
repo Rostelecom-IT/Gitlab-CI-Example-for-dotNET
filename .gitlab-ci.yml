@@ -4,7 +4,7 @@ variables:
   XUNIT_PATH: 'C:\Tools\xUnitRunner\xunit.console.exe'
   SONARSCANNER_MSBUILD_PATH: 'C:\Tools\SonarScanner\SonarScanner.MSBuild.exe'
   OPENCOVER_PATH: 'C:\Tools\OpenCover\OpenCover.Console.exe'
-  DEPLOY_TELEGRAM_SCRIPT: 'C:\Tools\Scripts\Deploy-FileToTelegram.ps1'
+  DEPLOY_TELEGRAM_SCRIPT: '.\scripts\Deploy-FileToTelegram.ps1'
   # Максимальное количество параллельно собираемых проектов при сборке решения; 
   # зависит от количества ядер ПК, выбранного для сборки
   MSBUILD_CONCURRENCY: 4
